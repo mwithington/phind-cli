@@ -1,13 +1,31 @@
 use reqwest::Error;
 use scraper::{Html, Selector};
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    // Define the URL of the web page to scrape
-    let url = "https://example.com";
+    // Read the website URL from command-line arguments
+    let args: Vec<String> = env::args().collect();
+    let mut url = None;
+
+    for (index, arg) in args.iter().enumerate() {
+        if arg == "--site" || arg == "-s" {
+            if let Some(site) = args.get(index + 1) {
+                url = Some(site.clone());
+                break;
+            }
+        }
+    }
+
+    if url.is_none() {
+        eprintln!("Usage: website-scraper --site <URL>");
+        return Ok(());
+    }
+
+    let url = url.unwrap();
 
     // Send an HTTP GET request to the URL
-    let body = reqwest::get(url).await?.text().await?;
+    let body = reqwest::get(&url).await?.text().await?;
 
     // Parse the HTML body using the scraper crate
     let document = Html::parse_document(&body);
