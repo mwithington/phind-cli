@@ -1,6 +1,8 @@
+use prettytable::{Cell, Row, Table};
 use reqwest::Error;
 use scraper::{Html, Selector};
 use std::env;
+use html_entities::decode_html_entities;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -11,7 +13,7 @@ async fn main() -> Result<(), Error> {
     for (index, arg) in args.iter().enumerate() {
         if arg == "--site" || arg == "-s" {
             if let Some(site) = args.get(index + 1) {
-                url = Some(site.clone());
+                url = Some(decode_html_entities(site).unwrap());
                 break;
             }
         }
@@ -30,13 +32,32 @@ async fn main() -> Result<(), Error> {
     // Parse the HTML body using the scraper crate
     let document = Html::parse_document(&body);
 
-    // Define a CSS selector to extract specific elements
-    let selector = Selector::parse("h1, h2, h3").unwrap();
+    // Define an XPath expression to extract specific elements
+    let xpath_expr = "//div[@name='answer-i']";
 
-    // Iterate over the matched elements and extract their text
-    for element in document.select(&selector) {
-        println!("{}", element.text().collect::<String>());
+    // Create a table to display the extracted data
+    let mut table = Table::new();
+    table.add_row(Row::new(vec![
+        Cell::new("Heading"),
+        Cell::new("Text"),
+    ]));
+
+    // Find the elements using the XPath expression
+    let selector = Selector::parse(xpath_expr).unwrap();
+    if let Some(element) = document.select(&selector).next() {
+        let heading = "Answer";
+        let text = element.text().collect::<String>();
+        table.add_row(Row::new(vec![
+            Cell::new(&heading),
+            Cell::new(&text),
+        ]));
+    } else {
+        eprintln!("No elements matching the selector were found.");
+        return Ok(());
     }
+
+    // Print the table
+    table.printstd();
 
     Ok(())
 }
