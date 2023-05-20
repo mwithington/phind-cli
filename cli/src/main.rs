@@ -1,54 +1,59 @@
 use prettytable::{Cell, Row, Table};
-use reqwest::Error;
+use reqwest::Error as ReqwestError;
 use scraper::{Html, Selector};
 use std::env;
 use html_entities::decode_html_entities;
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
-    // Read the website URL from command-line arguments
+async fn main() -> Result<(), ReqwestError> {
+    // Read the search query from command-line arguments
     let args: Vec<String> = env::args().collect();
-    let mut url = None;
+    let mut query: Option<String> = None;
 
     for (index, arg) in args.iter().enumerate() {
-        if arg == "--site" || arg == "-s" {
-            if let Some(site) = args.get(index + 1) {
-                url = Some(decode_html_entities(site).unwrap());
+        if arg == "--query" || arg == "-q" {
+            if let Some(q) = args.get(index + 1) {
+                query = Some(decode_html_entities(q).unwrap());
                 break;
             }
         }
     }
 
-    if url.is_none() {
-        eprintln!("Usage: website-scraper --site <URL>");
+    if query.is_none() {
+        eprintln!("Usage: website-scraper --query <search query>");
         return Ok(());
     }
 
-    let url = url.unwrap();
+    let query: String = query.unwrap();
+
+    // Construct the search URL
+    let base_url = "https://phind.com/";
+    let search_url: String = format!("{}?q={}", base_url, query);
 
     // Send an HTTP GET request to the URL
-    let body = reqwest::get(&url).await?.text().await?;
+    let body: String = reqwest::get(search_url).await?.text().await?;
+    println!("Body of document {}", body);
 
     // Parse the HTML body using the scraper crate
-    let document = Html::parse_document(&body);
+    let document: Html = Html::parse_document(&body);
 
     // Define an XPath expression to extract specific elements
-    let xpath_expr = "//div[@name='answer-i']";
+    let xpath_expr: &str = "//div[@name='answer-0']";
 
     // Create a table to display the extracted data
-    let mut table = Table::new();
+    let mut table: Table = Table::new();
     table.add_row(Row::new(vec![
         Cell::new("Heading"),
         Cell::new("Text"),
     ]));
 
     // Find the elements using the XPath expression
-    let selector = Selector::parse(xpath_expr).unwrap();
+    let selector: Selector = Selector::parse(xpath_expr).unwrap();
     if let Some(element) = document.select(&selector).next() {
-        let heading = "Answer";
-        let text = element.text().collect::<String>();
+        let heading: &str = "Answer";
+        let text: String = element.text().collect::<String>();
         table.add_row(Row::new(vec![
-            Cell::new(&heading),
+            Cell::new(heading),
             Cell::new(&text),
         ]));
     } else {
